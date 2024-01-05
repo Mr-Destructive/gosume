@@ -10,11 +10,14 @@ const HTML_TEMPL_START = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title></title>
+    <title>GoSume</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
 </head>
-<body>
-    <h1>GoSume</h1>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-lg mx-auto bg-white p-6 rounded shadow-md">
+        <h1 class="text-2xl font-semibold mb-4">GoSume Resume</h1>
 `
 
 const HTML_TEMPL_END = `
@@ -23,22 +26,31 @@ const HTML_TEMPL_END = `
 `
 
 const ResumeForm = `
-<form action="/" method="POST" >
-    <label for="name">Name:</label>
-    <input type="text" id="name" name="name">
+        <form action="/" method="POST">
+            <div class="mb-4">
+                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Name:</label>
+                <input type="text" id="name" name="name" class="w-full border p-2 rounded">
+            </div>
 
-    <label for="bio">Bio:</label>
-    <input type="text" id="bio" name="bio">
+            <div class="mb-4">
+                <label for="bio" class="block text-gray-700 text-sm font-bold mb-2">Bio:</label>
+                <input type="text" id="bio" name="bio" class="w-full border p-2 rounded">
+            </div>
 
-    <div  hx-swap="outerHTML">
-        <button type="button" hx-get="/?section=education">Add Education</button>
-        <button type="button" hx-get="/?section=experience">Add Experience</button>
-        <button type="button" hx-get="/?section=skills">Add Skills</button>
-        <button type="button" hx-get="/?section=custom-fields">Add Custom Fields</button>
-    </div>
+            <div class="mb-4" hx-swap="outerHTML">
+                <button type="button" hx-get="/?section=education"
+                    class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">Add Education</button>
+                <button type="button" hx-get="/?section=experience"
+                    class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">Add Experience</button>
+                <button type="button" hx-get="/?section=skills"
+                    class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">Add Skills</button>
+                <button type="button" hx-get="/?section=custom-fields"
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add Custom Fields</button>
+            </div>
 
-    <input type="submit" value="Submit">
-</form>
+            <input type="submit" value="Submit"
+                class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+        </form>
 `
 
 const EducationForm = `
