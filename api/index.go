@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"net/http"
+
+	"github.com/jung-kurt/gofpdf"
 )
 
 const HTML_TEMPL_START = `
@@ -95,7 +98,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		queryparam := r.URL.Query()
 		formContent := ""
-		if len(queryparam) > 0 {
+		if len(queryparam) > 0 && queryparam["section"] != nil {
 			section := queryparam["section"][0]
 			switch section {
 			case "education":
@@ -127,22 +130,36 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			</div>
 			%s
 		`, HTML_TEMPL_START, ResumeForm, HTML_TEMPL_END)
-
-		renderTemplate(w, templateStr)
+            renderTemplate(w, templateStr)
 	} else {
 		formData := parseFormData(r)
-
 		formContent := renderFormContent(formData)
+        queryparam := r.URL.Query()
+        if len(queryparam) > 0 && queryparam["pdf"][0] == "true" {
+            data := parseFormData(r)
+            pdf, err := generatePDF(data)
+            if err != nil {
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+            }
+            w.Header().Set("Content-Type", "application/pdf")
+            w.Write(pdf.Bytes())
+            return
+        }else{
 
 		templateStr := fmt.Sprintf(`
 			%s
+            <form action="/?pdf=true" method="POST">
 			<div id="form-container">
 				%s
 			</div>
+                <input type="submit" value="Generate PDF">
+            </form>
 			%s
 		`, HTML_TEMPL_START, formContent, HTML_TEMPL_END)
 
 		renderTemplate(w, templateStr)
+        }
 	}
 }
 
@@ -172,35 +189,43 @@ func renderFormContent(data FormData) string {
 		<h1>Resume</h1>
 		<hr>
 		<h2>Name: %s</h2>
+        <input type='text' hidden name='name' value='%s'>
 		<p>Bio: %s</p>
-	`, data.Name, data.Bio)
+        <input type='text' hidden name='bio' value='%s'>
+	`, data.Name, data.Name, data.Bio, data.Bio)
 
 	formContent += "<hr><h2>Education</h2>"
 	for _, degree := range data.EducationDegrees {
 		formContent += fmt.Sprintf(`
+        <input type='text' hidden name='education-degree' value='%s'>
 			<p>Education: %s</p>
-		`, degree)
+		`, degree, degree)
 	}
 
 	formContent += "<hr><h2>Experience</h2>"
 	for i := range data.ExperienceCompanies {
 		formContent += fmt.Sprintf(`
+            <input type='text' hidden name='experience-company' value='%s'>
 			<p>Company: %s</p>
+            <input type='text' hidden name='experience-position' value='%s'>
 			<p>Position: %s</p>
-		`, data.ExperienceCompanies[i], data.ExperiencePositions[i])
+		`, data.ExperienceCompanies[i], data.ExperienceCompanies[i], data.ExperiencePositions[i],  data.ExperiencePositions[i])
 	}
 
 	formContent += "<hr><h2>Skills</h2>"
 	for _, skill := range data.Skills {
 		formContent += fmt.Sprintf(`
 			<p>Skills: %s</p>
-		`, skill)
+            <input type='text' hidden name='skill' value='%s'>
+		`, skill, skill)
 	}
     formContent += "<hr><h2>Custom Fields</h2>"
     for k, v := range data.CustomFields {
         formContent += fmt.Sprintf(`
+            <input type='text' hidden name='custom-key' value='%s'>
+            <input type='text' hidden name='custom-field-value' value='%s'>
             <p>%s: %s</p>
-        `, k, v)
+        `, k, v, k, v)
     }
 
 	return formContent
@@ -215,6 +240,69 @@ func renderTemplate(w http.ResponseWriter, templateStr string) {
 	}
 	t.Execute(w, nil)
 }
+
+
+func generatePDF(data FormData) (*bytes.Buffer, error) {
+	var pdfBuffer bytes.Buffer
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+
+	pdf.Cell(40, 10, "Resume")
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "", 12)
+
+	pdf.Cell(40, 10, fmt.Sprintf("Name: %s", data.Name))
+	pdf.Ln(8)
+
+	pdf.Cell(40, 10, fmt.Sprintf("Bio: %s", data.Bio))
+	pdf.Ln(8)
+
+	pdf.Cell(40, 10, "Education:")
+	pdf.Ln(8)
+
+	for _, degree := range data.EducationDegrees {
+		pdf.Cell(40, 10, fmt.Sprintf("- %s", degree))
+		pdf.Ln(8)
+	}
+
+	pdf.Cell(40, 10, "Experience:")
+	pdf.Ln(8)
+
+	for i := range data.ExperienceCompanies {
+		pdf.Cell(40, 10, fmt.Sprintf("- Company: %s", data.ExperienceCompanies[i]))
+		pdf.Ln(8)
+
+		pdf.Cell(40, 10, fmt.Sprintf("  Position: %s", data.ExperiencePositions[i]))
+		pdf.Ln(8)
+	}
+
+	pdf.Cell(40, 10, "Skills:")
+	pdf.Ln(8)
+
+	for _, skill := range data.Skills {
+		pdf.Cell(40, 10, fmt.Sprintf("- %s", skill))
+		pdf.Ln(8)
+	}
+
+	pdf.Cell(40, 10, "Custom Fields:")
+	pdf.Ln(8)
+
+	for k, v := range data.CustomFields {
+		pdf.Cell(40, 10, fmt.Sprintf("- %s: %s", k, v))
+		pdf.Ln(8)
+	}
+
+	err := pdf.Output(&pdfBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pdfBuffer, nil
+}
+
 
 func main() {
 	http.HandleFunc("/", Handler)
